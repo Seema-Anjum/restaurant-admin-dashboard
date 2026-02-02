@@ -144,3 +144,6 @@ Problem: Different response shapes (items vs array)
 Solution: Defensive parsing in frontend data layer 
 
 ### ScreenShot
+
+<img width="1920" height="837" alt="Screenshot 2026-02-02 083653" src="https://github.com/user-attachments/assets/56422a67-a849-4970-8162-823286194e56" />
+
