@@ -1,0 +1,8 @@
+# General env file
+.env
+
+# Specific server env file
+server/.env
+
+# Ignore node_modules
+node_modules/
