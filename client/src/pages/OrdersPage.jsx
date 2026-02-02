@@ -1,12 +1,16 @@
 import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
+import OrderModal from "../components/OrderModal"; 
 import "../styles/orders.css";
 
 const OrdersPage = () => {
   const [orders, setOrders] = useState([]);
+  const [menuItems, setMenuItems] = useState([]);
   const [filterStatus, setFilterStatus] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // 1. Fetch Orders based on status filter
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
@@ -21,24 +25,44 @@ const OrdersPage = () => {
     }
   }, [filterStatus]);
 
+  // 2. Fetch Menu Items 
+  const fetchMenu = async () => {
+    try {
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/menu`);
+      const data = Array.isArray(res.data) ? res.data : res.data.items || [];
+      setMenuItems(data);
+    } catch (err) {
+      console.error("Menu Fetch Error:", err);
+    }
+  };
+
   useEffect(() => {
     fetchOrders();
-    // Optional: Poll for new orders every 30 seconds
-    const interval = setInterval(fetchOrders, 30000);
-    return () => clearInterval(interval);
+    fetchMenu();
   }, [fetchOrders]);
 
+  // 3. Update Order Status
   const handleStatusChange = async (id, newStatus) => {
     try {
       await axios.patch(`${import.meta.env.VITE_API_URL}/orders/${id}`, { 
         status: newStatus 
       });
-      // Update local state to show change immediately
       setOrders(prev => 
         prev.map(o => o._id === id ? { ...o, status: newStatus } : o)
       );
     } catch (err) {
-      alert("Update failed. Please try again.");
+      alert("Update failed");
+    }
+  };
+
+  // 4. Save New Manual Order
+  const handleSaveOrder = async (orderData) => {
+    try {
+      const res = await axios.post(`${import.meta.env.VITE_API_URL}/orders`, orderData);
+      setOrders([res.data, ...orders]);
+      setIsModalOpen(false);
+    } catch (err) {
+      alert("Failed to create order");
     }
   };
 
@@ -47,10 +71,10 @@ const OrdersPage = () => {
       <div className="orders-header">
         <div>
           <h2>Orders Dashboard</h2>
-          <p className="text-muted">Manage incoming and past orders</p>
+          <p className="text-muted">Manage real-time and manual orders</p>
         </div>
-        <div className="filter-group">
-          <span>Filter by Status:</span>
+        
+        <div className="header-actions">
           <select 
             className="status-select"
             onChange={(e) => setFilterStatus(e.target.value)}
@@ -62,31 +86,37 @@ const OrdersPage = () => {
             <option value="Delivered">Delivered</option>
             <option value="Cancelled">Cancelled</option>
           </select>
+
+          <button className="primary-btn add-order-btn" onClick={() => setIsModalOpen(true)}>
+            + Create Order
+          </button>
         </div>
       </div>
 
+      {/* Orders Table */}
       <div className="orders-table-wrapper">
         <table className="orders-table">
           <thead>
             <tr>
-              <th>Order ID</th>
+              <th>ID</th>
               <th>Customer</th>
               <th>Status</th>
-              <th>Total Amount</th>
+              <th>Total</th>
+              <th>Date</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="5" className="table-loader">Fetching orders...</td></tr>
+              <tr><td colSpan="6" className="table-msg">Loading orders...</td></tr>
             ) : orders.length > 0 ? (
               orders.map(order => (
                 <tr key={order._id}>
                   <td className="order-id">#{order._id.slice(-5).toUpperCase()}</td>
                   <td>
-                    <div className="customer-info">
+                    <div className="cust-info">
                       <strong>{order.customerName}</strong>
-                      <span>{order.phone || "No contact"}</span>
+                      <span>{order.items?.length || 0} items</span>
                     </div>
                   </td>
                   <td>
@@ -94,7 +124,10 @@ const OrdersPage = () => {
                       {order.status}
                     </span>
                   </td>
-                  <td className="order-amount">₹{order.totalAmount || 0}</td>
+                  <td className="order-amount">₹{order.totalAmount}</td>
+                  <td className="order-date">
+                    {new Date(order.createdAt).toLocaleDateString()}
+                  </td>
                   <td>
                     <select 
                       className="action-select"
@@ -110,11 +143,19 @@ const OrdersPage = () => {
                 </tr>
               ))
             ) : (
-              <tr><td colSpan="5" className="empty-table">No orders found.</td></tr>
+              <tr><td colSpan="6" className="table-msg">No orders found.</td></tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {/* Manual Order Modal */}
+      <OrderModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onSave={handleSaveOrder}
+        menuItems={menuItems}
+      />
     </div>
   );
 };
